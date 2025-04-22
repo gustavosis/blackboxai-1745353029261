@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Registro de Proveedor de Servicios</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+  <header class="bg-white shadow p-4">
+    <div class="container mx-auto flex justify-between items-center">
+      <h1 class="text-2xl font-bold text-gray-800">Registro de Proveedor</h1>
+      <a href="index.html" class="text-blue-600 hover:text-blue-800 font-semibold">Volver a búsqueda</a>
+    </div>
+  </header>
+
+  <main class="container mx-auto flex-grow p-4">
+    <section class="max-w-lg mx-auto bg-white p-6 rounded shadow">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Crea tu perfil de proveedor</h2>
+      <form id="registerForm" class="space-y-4" enctype="multipart/form-data">
+        <div>
+          <label for="name" class="block text-gray-700 font-semibold mb-1">Nombre completo</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label for="service" class="block text-gray-700 font-semibold mb-1">Tipo de servicio</label>
+          <input
+            type="text"
+            id="service"
+            name="service"
+            placeholder="Ejemplo: carpintería, mecánica, plomería..."
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label for="description" class="block text-gray-700 font-semibold mb-1">Descripción (opcional)</label>
+          <textarea
+            id="description"
+            name="description"
+            rows="3"
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          ></textarea>
+        </div>
+        <div>
+          <label for="contact" class="block text-gray-700 font-semibold mb-1">Información de contacto</label>
+          <input
+            type="text"
+            id="contact"
+            name="contact"
+            placeholder="Teléfono, email, etc."
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label for="location" class="block text-gray-700 font-semibold mb-1">Ubicación (opcional)</label>
+          <input
+            type="text"
+            id="location"
+            name="location"
+            placeholder="Ciudad, barrio, etc."
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label for="documents" class="block text-gray-700 font-semibold mb-1">Fotos y diplomas (png, jpg, pdf)</label>
+          <input
+            type="file"
+            id="documents"
+            name="documents"
+            accept=".png,.jpg,.jpeg,.pdf"
+            multiple
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <button
+          type="submit"
+          class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition font-semibold"
+        >
+          Registrarse
+        </button>
+      </form>
+      <p id="message" class="mt-4 text-center text-sm"></p>
+    </section>
+  </main>
+
+  <footer class="bg-white shadow p-4 text-center text-gray-600 text-sm">
+    &copy; 2024 Directorio de Servicios. Todos los derechos reservados.
+  </footer>
+
+  <script>
+    const registerForm = document.getElementById('registerForm');
+    const messageP = document.getElementById('message');
+
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      messageP.textContent = '';
+
+      const formData = new FormData(registerForm);
+
+      if (!formData.get('name').trim() || !formData.get('service').trim() || !formData.get('contact').trim()) {
+        messageP.textContent = 'Por favor, complete los campos obligatorios.';
+        messageP.className = 'text-red-600';
+        return;
+      }
+
+      try {
+        // First, register provider basic info
+        const providerResponse = await fetch('/providers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formData.get('name').trim(),
+            service: formData.get('service').trim(),
+            description: formData.get('description').trim(),
+            contact: formData.get('contact').trim(),
+            location: formData.get('location').trim(),
+          }),
+        });
+        if (!providerResponse.ok) {
+          throw new Error('Error al registrar el proveedor');
+        }
+        const providerResult = await providerResponse.json();
+
+        // Then, upload documents if any
+        const files = formData.getAll('documents');
+        if (files.length > 0 && files[0].size > 0) {
+          const uploadFormData = new FormData();
+          files.forEach(file => uploadFormData.append('documents', file));
+          const uploadResponse = await fetch(`/providers/${providerResult.id}/documents`, {
+            method: 'POST',
+            body: uploadFormData,
+          });
+          if (!uploadResponse.ok) {
+            throw new Error('Error al subir documentos');
+          }
+        }
+
+        messageP.textContent = 'Registro exitoso. ¡Gracias por unirte!';
+        messageP.className = 'text-green-600';
+        registerForm.reset();
+      } catch (error) {
+        console.error(error);
+        messageP.textContent = 'Hubo un problema al registrar. Intente nuevamente.';
+        messageP.className = 'text-red-600';
+      }
+    });
+  </script>
+</body>
+</html>

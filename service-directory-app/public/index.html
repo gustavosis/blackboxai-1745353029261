@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Directorio de Proveedores de Servicios</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+  <header class="bg-white shadow p-4">
+    <div class="container mx-auto flex justify-between items-center">
+      <h1 class="text-2xl font-bold text-gray-800">Directorio de Servicios</h1>
+      <a href="register.html" class="text-blue-600 hover:text-blue-800 font-semibold">Regístrate como proveedor</a>
+    </div>
+  </header>
+
+  <main class="container mx-auto flex-grow p-4">
+    <section class="max-w-xl mx-auto text-center mb-8">
+      <h1 class="text-3xl font-bold mb-4 text-gray-800">Bienvenido al Directorio de Servicios</h1>
+      <p class="text-gray-600 mb-6">
+        Encuentra proveedores de servicios confiables cerca de ti. Permite que la aplicación acceda a tu ubicación para mostrarte los servicios más cercanos.
+      </p>
+      <button id="locateBtn" class="bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 transition font-semibold">
+        Usar mi ubicación
+      </button>
+    </section>
+
+    <section class="max-w-xl mx-auto">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Busca un servicio</h2>
+      <form id="searchForm" class="flex mb-6">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Ejemplo: carpintería, mecánica, plomería..."
+          class="flex-grow border border-gray-300 rounded-l px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+        <button
+          type="submit"
+          class="bg-blue-600 text-white px-6 rounded-r hover:bg-blue-700 transition"
+        >
+          <i class="fas fa-search"></i>
+        </button>
+      </form>
+
+      <div id="results" class="space-y-4"></div>
+    </section>
+
+    <section class="max-w-xl mx-auto mt-8">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Contactar Proveedor</h2>
+      <form id="contactForm" class="space-y-4 bg-white p-6 rounded shadow">
+        <div>
+          <label for="providerSelect" class="block text-gray-700 font-semibold mb-1">Selecciona un proveedor</label>
+          <select id="providerSelect" name="provider_id" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">-- Selecciona --</option>
+          </select>
+        </div>
+        <div>
+          <label for="contactMessage" class="block text-gray-700 font-semibold mb-1">Mensaje</label>
+          <textarea id="contactMessage" name="message" rows="4" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </div>
+        <div>
+          <label for="contactLocation" class="block text-gray-700 font-semibold mb-1">Ubicación</label>
+          <input type="text" id="contactLocation" name="location" placeholder="Ciudad, barrio, etc." required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <button type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition font-semibold">Enviar Mensaje</button>
+        <p id="contactMessageStatus" class="mt-2 text-center text-sm"></p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="bg-white shadow p-4 text-center text-gray-600 text-sm">
+    &copy; 2024 Directorio de Servicios. Todos los derechos reservados.
+  </footer>
+
+  <script>
+    const resultsDiv = document.getElementById('results');
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = document.getElementById('searchInput');
+
+    async function fetchProviders(searchTerm) {
+      try {
+        const response = await fetch('/providers?search=' + encodeURIComponent(searchTerm));
+        if (!response.ok) {
+          throw new Error('Error al buscar proveedores');
+        }
+        const providers = await response.json();
+        return providers;
+      } catch (error) {
+        console.error(error);
+        return [];
+      }
+    }
+
+    function renderProviders(providers) {
+      if (providers.length === 0) {
+        resultsDiv.innerHTML = '<p class="text-gray-600">No se encontraron proveedores para ese servicio.</p>';
+        return;
+      }
+      resultsDiv.innerHTML = providers.map(p => {
+        return '<div class="bg-white p-4 rounded shadow hover:shadow-lg transition">' +
+          '<h3 class="text-lg font-semibold text-gray-800">' + p.name + '</h3>' +
+          '<p class="text-sm text-gray-600 italic">Servicio: ' + p.service + '</p>' +
+          '<p class="mt-2 text-gray-700">' + (p.description || 'Sin descripción') + '</p>' +
+          '<p class="mt-2 text-blue-600 font-semibold">Contacto: ' + p.contact + '</p>' +
+          '<p class="text-gray-500 text-sm">Ubicación: ' + (p.location || 'No especificada') + '</p>' +
+          '</div>';
+      }).join('');
+    }
+
+    async function loadProvidersForContact() {
+      const select = document.getElementById('providerSelect');
+      try {
+        const response = await fetch('/providers');
+        if (!response.ok) throw new Error('Error al cargar proveedores');
+        const providers = await response.json();
+        select.innerHTML = '<option value="">-- Selecciona --</option>';
+        providers.forEach(p => {
+          const option = document.createElement('option');
+          option.value = p.id;
+          option.textContent = p.name + ' (' + p.service + ')';
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    const contactForm = document.getElementById('contactForm');
+    const contactMessageStatus = document.getElementById('contactMessageStatus');
+
+    contactForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      contactMessageStatus.textContent = '';
+      const formData = new FormData(contactForm);
+      const provider_id = formData.get('provider_id');
+      const message = formData.get('message').trim();
+      const location = formData.get('location').trim();
+
+      if (!provider_id || !message || !location) {
+        contactMessageStatus.textContent = 'Por favor, complete todos los campos.';
+        contactMessageStatus.className = 'text-red-600';
+        return;
+      }
+
+      try {
+        // Create service request without user_id (unregistered user)
+        const response = await fetch('/service_requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: null,
+            provider_id: provider_id,
+            location: location,
+            communication: message
+          }),
+        });
+        if (!response.ok) {
+          throw new Error('Error al enviar el mensaje');
+        }
+        contactMessageStatus.textContent = 'Mensaje enviado con éxito.';
+        contactMessageStatus.className = 'text-green-600';
+        contactForm.reset();
+      } catch (error) {
+        console.error(error);
+        contactMessageStatus.textContent = 'Hubo un problema al enviar el mensaje.';
+        contactMessageStatus.className = 'text-red-600';
+      }
+    });
+
+    // Load providers for contact select on page load
+    window.addEventListener('DOMContentLoaded', loadProvidersForContact);
+
+    searchForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const searchTerm = searchInput.value.trim();
+      if (!searchTerm) return;
+      resultsDiv.innerHTML = '<p class="text-gray-600">Buscando...</p>';
+      const providers = await fetchProviders(searchTerm);
+      renderProviders(providers);
+    });
+
+    // Geolocation and location-based search
+    const locateBtn = document.getElementById('locateBtn');
+    locateBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        alert('Geolocalización no es soportada por tu navegador.');
+        return;
+      }
+      locateBtn.disabled = true;
+      locateBtn.textContent = 'Obteniendo ubicación...';
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        locateBtn.textContent = 'Ubicación obtenida';
+        // Perform search with location
+        resultsDiv.innerHTML = '<p class="text-gray-600">Buscando proveedores cercanos...</p>';
+        try {
+          const response = await fetch(`/providers?lat=${lat}&lng=${lng}`);
+          if (!response.ok) throw new Error('Error al buscar proveedores');
+          const providers = await response.json();
+          renderProviders(providers);
+        } catch (error) {
+          console.error(error);
+          resultsDiv.innerHTML = '<p class="text-red-600">Error al buscar proveedores cercanos.</p>';
+        }
+      }, (error) => {
+        alert('No se pudo obtener la ubicación: ' + error.message);
+        locateBtn.disabled = false;
+        locateBtn.textContent = 'Usar mi ubicación';
+      });
+    });
+  </script>
+</body>
+</html>

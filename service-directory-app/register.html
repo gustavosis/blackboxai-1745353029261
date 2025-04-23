@@ -7,11 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-  <style>
-    body {
-      font-family: 'Roboto', sans-serif;
-    }
-  </style>
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col">
   <header class="bg-white shadow p-4">
@@ -25,6 +21,41 @@
     <section class="max-w-lg mx-auto bg-white p-6 rounded shadow">
       <h2 class="text-xl font-semibold mb-4 text-gray-700">Crea tu perfil de proveedor</h2>
       <form id="registerForm" class="space-y-4" enctype="multipart/form-data">
+        <div>
+          <label for="rut" class="block text-gray-700 font-semibold mb-1">RUT</label>
+          <input
+            type="text"
+            id="rut"
+            name="rut"
+            placeholder="Ejemplo: 12.345.678-9"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label for="phone" class="block text-gray-700 font-semibold mb-1">Número de teléfono</label>
+          <input
+            type="tel"
+            id="phone"
+            name="phone"
+            placeholder="Ejemplo: +56912345678"
+            required
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label for="password" class="block text-gray-700 font-semibold mb-1">Contraseña</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número"
+            required
+            pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$"
+            title="La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número."
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
         <div>
           <label for="name" class="block text-gray-700 font-semibold mb-1">Nombre completo</label>
           <input
@@ -95,6 +126,15 @@
         </button>
       </form>
       <p id="message" class="mt-4 text-center text-sm"></p>
+
+      <div class="mt-6 flex justify-center space-x-4">
+        <a href="/auth/google" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition font-semibold flex items-center space-x-2" title="Registrarse con Google">
+          <i class="fab fa-google"></i><span>Registrarse con Google</span>
+        </a>
+        <a href="/auth/facebook" class="bg-blue-800 text-white px-4 py-2 rounded hover:bg-blue-900 transition font-semibold flex items-center space-x-2" title="Registrarse con Facebook">
+          <i class="fab fa-facebook-f"></i><span>Registrarse con Facebook</span>
+        </a>
+      </div>
     </section>
   </main>
 
@@ -112,25 +152,38 @@
 
       const formData = new FormData(registerForm);
 
-      if (!formData.get('name').trim() || !formData.get('service').trim() || !formData.get('contact').trim()) {
+      if (!formData.get('name').trim() || !formData.get('service').trim() || !formData.get('contact').trim() || !formData.get('rut').trim() || !formData.get('phone').trim() || !formData.get('password').trim()) {
         messageP.textContent = 'Por favor, complete los campos obligatorios.';
         messageP.className = 'text-red-600';
         return;
       }
 
+      // Password validation regex
+      const password = formData.get('password').trim();
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+      if (!passwordRegex.test(password)) {
+        messageP.textContent = 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.';
+        messageP.className = 'text-red-600';
+        return;
+      }
+
       try {
-        // First, register provider basic info
-        const providerResponse = await fetch('/providers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formData.get('name').trim(),
-            service: formData.get('service').trim(),
-            description: formData.get('description').trim(),
-            contact: formData.get('contact').trim(),
-            location: formData.get('location').trim(),
-          }),
-        });
+        // First, register provider basic info with new fields
+      const providerResponse = await fetch('/providers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rut: formData.get('rut').trim(),
+          phone: formData.get('phone').trim(),
+          password: password,
+          email: formData.get('contact').trim(),
+          name: formData.get('name').trim(),
+          service: formData.get('service').trim(),
+          description: formData.get('description').trim(),
+          contact: formData.get('contact').trim(),
+          location: formData.get('location').trim(),
+        }),
+      });
         if (!providerResponse.ok) {
           throw new Error('Error al registrar el proveedor');
         }

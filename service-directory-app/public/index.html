@@ -10,6 +10,10 @@
   <style>
     body {
       font-family: 'Roboto', sans-serif;
+    }0
+    /* Hide the search section when booking is active */
+    #searchSection.hidden {
+      display: none;
     }
   </style>
 </head>
@@ -17,7 +21,10 @@
   <header class="bg-white shadow p-4">
     <div class="container mx-auto flex justify-between items-center">
       <h1 class="text-2xl font-bold text-gray-800">Directorio de Servicios</h1>
-      <a href="register.html" class="text-blue-600 hover:text-blue-800 font-semibold">Regístrate como proveedor</a>
+      <div class="flex space-x-4">
+        <a href="register.html" class="text-blue-600 hover:text-blue-800 font-semibold">Regístrate como proveedor</a>
+        <button id="loginBtn" class="text-blue-600 hover:text-blue-800 font-semibold">Iniciar sesión</button>
+      </div>
     </div>
   </header>
 
@@ -32,48 +39,70 @@
       </button>
     </section>
 
-    <section class="max-w-xl mx-auto">
+    <section id="searchSection" class="max-w-xl mx-auto">
       <h2 class="text-xl font-semibold mb-4 text-gray-700">Busca un servicio</h2>
       <form id="searchForm" class="flex mb-6">
         <input
           type="text"
           id="searchInput"
           placeholder="Ejemplo: carpintería, mecánica, plomería..."
-          class="flex-grow border border-gray-300 rounded-l px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          class="flex-grow border border-gray-300 rounded-l px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"
           required
         />
         <button
           type="submit"
-          class="bg-blue-600 text-white px-6 rounded-r hover:bg-blue-700 transition"
+          class="bg-blue-600 text-white px-8 rounded-r hover:bg-blue-700 transition"
+          aria-label="Buscar servicios"
         >
-          <i class="fas fa-search"></i>
+          <i class="fas fa-search text-xl"></i>
         </button>
       </form>
 
       <div id="results" class="space-y-4"></div>
     </section>
 
-    <section class="max-w-xl mx-auto mt-8">
-      <h2 class="text-xl font-semibold mb-4 text-gray-700">Contactar Proveedor</h2>
-      <form id="contactForm" class="space-y-4 bg-white p-6 rounded shadow">
-        <div>
-          <label for="providerSelect" class="block text-gray-700 font-semibold mb-1">Selecciona un proveedor</label>
-          <select id="providerSelect" name="provider_id" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">-- Selecciona --</option>
-          </select>
+    <section id="bookingSection" class="max-w-xl mx-auto mt-8 bg-white p-6 rounded shadow hidden">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Reserva tu servicio en 3 pasos</h2>
+      <div id="bookingSteps" class="space-y-6">
+        <div id="step1" class="step">
+          <h3 class="text-lg font-semibold mb-2">Paso 1: Confirmar proveedor</h3>
+          <p id="selectedProviderName" class="mb-4 text-gray-800 font-semibold"></p>
         </div>
-        <div>
-          <label for="contactMessage" class="block text-gray-700 font-semibold mb-1">Mensaje</label>
-          <textarea id="contactMessage" name="message" rows="4" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        <div id="step2" class="step hidden">
+          <h3 class="text-lg font-semibold mb-2">Paso 2: Confirma tu ubicación</h3>
+          <input type="text" id="bookingLocation" placeholder="Ciudad, barrio, etc." class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <button id="useCurrentLocation" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition font-semibold">Usar mi ubicación actual</button>
         </div>
-        <div>
-          <label for="contactLocation" class="block text-gray-700 font-semibold mb-1">Ubicación</label>
-          <input type="text" id="contactLocation" name="location" placeholder="Ciudad, barrio, etc." required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <div id="step3" class="step hidden">
+          <h3 class="text-lg font-semibold mb-2">Paso 3: Confirma y reserva</h3>
+          <p id="summary" class="mb-4 text-gray-700"></p>
+          <button id="confirmBooking" class="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700 transition font-semibold">Confirmar Reserva</button>
+          <p id="bookingStatus" class="mt-4 text-center text-sm"></p>
         </div>
-        <button type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition font-semibold">Enviar Mensaje</button>
-        <p id="contactMessageStatus" class="mt-2 text-center text-sm"></p>
-      </form>
+      </div>
     </section>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+      <div class="bg-white rounded p-6 w-full max-w-md">
+        <h2 class="text-xl font-semibold mb-4">Iniciar sesión</h2>
+        <form id="loginForm" class="space-y-4">
+          <div>
+            <label for="loginUsername" class="block text-gray-700 font-semibold mb-1">Usuario</label>
+            <input type="text" id="loginUsername" name="username" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label for="loginPassword" class="block text-gray-700 font-semibold mb-1">Contraseña</label>
+            <input type="password" id="loginPassword" name="password" required class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div class="flex justify-end space-x-4">
+            <button type="button" id="loginCancel" class="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400">Cancelar</button>
+            <button type="submit" class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">Entrar</button>
+          </div>
+        </form>
+        <p id="loginMessage" class="mt-2 text-sm text-red-600"></p>
+      </div>
+    </div>
   </main>
 
   <footer class="bg-white shadow p-4 text-center text-gray-600 text-sm">
@@ -81,10 +110,30 @@
   </footer>
 
   <script>
+    // Elements
     const resultsDiv = document.getElementById('results');
     const searchForm = document.getElementById('searchForm');
     const searchInput = document.getElementById('searchInput');
+    const bookingSection = document.getElementById('bookingSection');
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const step3 = document.getElementById('step3');
+    const selectedProviderName = document.getElementById('selectedProviderName');
+    const bookingLocationInput = document.getElementById('bookingLocation');
+    const summary = document.getElementById('summary');
+    const bookingStatus = document.getElementById('bookingStatus');
+    const useCurrentLocationBtn = document.getElementById('useCurrentLocation');
+    const confirmBookingBtn = document.getElementById('confirmBooking');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginModal = document.getElementById('loginModal');
+    const loginForm = document.getElementById('loginForm');
+    const loginCancel = document.getElementById('loginCancel');
+    const loginMessage = document.getElementById('loginMessage');
 
+    let selectedProviderId = null;
+    let selectedProviderDisplayName = '';
+
+    // Fetch providers by search term
     async function fetchProviders(searchTerm) {
       try {
         const response = await fetch('/providers?search=' + encodeURIComponent(searchTerm));
@@ -99,13 +148,14 @@
       }
     }
 
+    // Render providers in results div
     function renderProviders(providers) {
       if (providers.length === 0) {
         resultsDiv.innerHTML = '<p class="text-gray-600">No se encontraron proveedores para ese servicio.</p>';
         return;
       }
       resultsDiv.innerHTML = providers.map(p => {
-        return '<div class="bg-white p-4 rounded shadow hover:shadow-lg transition">' +
+        return '<div class="bg-white p-4 rounded shadow hover:shadow-lg transition cursor-pointer" data-id="' + p.id + '" data-name="' + p.name + '">' +
           '<h3 class="text-lg font-semibold text-gray-800">' + p.name + '</h3>' +
           '<p class="text-sm text-gray-600 italic">Servicio: ' + p.service + '</p>' +
           '<p class="mt-2 text-gray-700">' + (p.description || 'Sin descripción') + '</p>' +
@@ -113,71 +163,148 @@
           '<p class="text-gray-500 text-sm">Ubicación: ' + (p.location || 'No especificada') + '</p>' +
           '</div>';
       }).join('');
+      attachProviderClickEvents();
     }
 
-    async function loadProvidersForContact() {
-      const select = document.getElementById('providerSelect');
-      try {
-        const response = await fetch('/providers');
-        if (!response.ok) throw new Error('Error al cargar proveedores');
-        const providers = await response.json();
-        select.innerHTML = '<option value="">-- Selecciona --</option>';
-        providers.forEach(p => {
-          const option = document.createElement('option');
-          option.value = p.id;
-          option.textContent = p.name + ' (' + p.service + ')';
-          select.appendChild(option);
+    // Attach click events to provider divs for booking
+    function attachProviderClickEvents() {
+      const providerDivs = document.querySelectorAll('#results > div');
+      providerDivs.forEach(div => {
+        div.addEventListener('click', () => {
+          selectedProviderId = div.getAttribute('data-id');
+          selectedProviderDisplayName = div.getAttribute('data-name');
+          startBooking();
         });
-      } catch (error) {
-        console.error(error);
-      }
+      });
     }
 
-    const contactForm = document.getElementById('contactForm');
-    const contactMessageStatus = document.getElementById('contactMessageStatus');
+    // Start booking flow
+    function startBooking() {
+      selectedProviderName.textContent = selectedProviderDisplayName;
+      bookingSection.classList.remove('hidden');
+      step1.classList.remove('hidden');
+      step2.classList.add('hidden');
+      step3.classList.add('hidden');
+      bookingLocationInput.value = '';
+      bookingStatus.textContent = '';
+      // Hide search section while booking
+      document.getElementById('searchSection').classList.add('hidden');
+    }
 
-    contactForm.addEventListener('submit', async (e) => {
+    // Use current location button handler
+    useCurrentLocationBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      contactMessageStatus.textContent = '';
-      const formData = new FormData(contactForm);
-      const provider_id = formData.get('provider_id');
-      const message = formData.get('message').trim();
-      const location = formData.get('location').trim();
-
-      if (!provider_id || !message || !location) {
-        contactMessageStatus.textContent = 'Por favor, complete todos los campos.';
-        contactMessageStatus.className = 'text-red-600';
+      if (!navigator.geolocation) {
+        alert('Geolocalización no es soportada por tu navegador.');
         return;
       }
+      bookingStatus.textContent = 'Obteniendo ubicación...';
+      navigator.geolocation.getCurrentPosition((position) => {
+        bookingLocationInput.value = `Lat: ${position.coords.latitude.toFixed(5)}, Lng: ${position.coords.longitude.toFixed(5)}`;
+        bookingStatus.textContent = 'Ubicación obtenida.';
+      }, (error) => {
+        alert('No se pudo obtener la ubicación: ' + error.message);
+        bookingStatus.textContent = '';
+      });
+    });
 
+    // Clear booking status on location input change
+    bookingLocationInput.addEventListener('input', () => {
+      bookingStatus.textContent = '';
+    });
+
+    // Confirm booking button handler
+    confirmBookingBtn.addEventListener('click', async () => {
+      const location = bookingLocationInput.value.trim();
+      if (!location) {
+        bookingStatus.textContent = 'Por favor, ingresa tu ubicación.';
+        bookingStatus.className = 'text-red-600';
+        return;
+      }
+      step1.classList.add('hidden');
+      step2.classList.remove('hidden');
+      step3.classList.remove('hidden');
+      summary.textContent = `Has seleccionado al proveedor: ${selectedProviderDisplayName} y la ubicación: ${location}.`;
+      bookingStatus.textContent = '';
+
+      bookingStatus.textContent = 'Enviando solicitud...';
+      bookingStatus.className = '';
       try {
-        // Create service request without user_id (unregistered user)
         const response = await fetch('/service_requests', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             user_id: null,
-            provider_id: provider_id,
+            provider_id: selectedProviderId,
             location: location,
-            communication: message
           }),
         });
         if (!response.ok) {
-          throw new Error('Error al enviar el mensaje');
+          throw new Error('Error al enviar la solicitud');
         }
-        contactMessageStatus.textContent = 'Mensaje enviado con éxito.';
-        contactMessageStatus.className = 'text-green-600';
-        contactForm.reset();
+        bookingStatus.textContent = 'Solicitud enviada con éxito. ¡Gracias!';
+        bookingStatus.className = 'text-green-600';
+        // Reset booking steps and show search again
+        bookingSection.classList.add('hidden');
+        document.getElementById('searchSection').classList.remove('hidden');
+        selectedProviderId = null;
+        selectedProviderDisplayName = '';
+        bookingLocationInput.value = '';
       } catch (error) {
         console.error(error);
-        contactMessageStatus.textContent = 'Hubo un problema al enviar el mensaje.';
-        contactMessageStatus.className = 'text-red-600';
+        bookingStatus.textContent = 'Hubo un problema al enviar la solicitud.';
+        bookingStatus.className = 'text-red-600';
       }
     });
 
-    // Load providers for contact select on page load
-    window.addEventListener('DOMContentLoaded', loadProvidersForContact);
+    // Login modal toggle
+    loginBtn.addEventListener('click', () => {
+      loginModal.classList.remove('hidden');
+      loginMessage.textContent = '';
+      loginForm.reset();
+    });
 
+    loginCancel.addEventListener('click', () => {
+      loginModal.classList.add('hidden');
+    });
+
+    // Login form submit handler
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginMessage.textContent = '';
+      const username = loginForm.username.value.trim();
+      const password = loginForm.password.value.trim();
+      if (!username || !password) {
+        loginMessage.textContent = 'Por favor, ingresa usuario y contraseña.';
+        return;
+      }
+      try {
+        const response = await fetch('/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        if (!response.ok) {
+          throw new Error('Credenciales inválidas');
+        }
+        const data = await response.json();
+        loginMessage.textContent = 'Inicio de sesión exitoso. Bienvenido, ' + data.user.username;
+        loginMessage.className = 'text-green-600';
+        setTimeout(() => {
+          loginModal.classList.add('hidden');
+        }, 1500);
+      } catch (error) {
+        loginMessage.textContent = error.message || 'Error al iniciar sesión';
+        loginMessage.className = 'text-red-600';
+      }
+    });
+
+    // Load providers on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadProvidersForSelect();
+    });
+
+    // Search form submit handler
     searchForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const searchTerm = searchInput.value.trim();

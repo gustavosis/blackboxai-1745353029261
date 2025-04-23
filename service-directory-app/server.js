@@ -10,8 +10,17 @@ const bcrypt = require('bcrypt');
 const multer = require('multer');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
+const session = require('express-session');
 
 const app = express();
+
+// Session configuration
+app.use(session({
+  secret: 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: false } // set to true if using https
+}));
 const port = 3000;
 
 const authLimiter = rateLimit({
@@ -45,7 +54,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'video/webm', 'video/mp4'];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -53,7 +62,7 @@ const upload = multer({
     }
   },
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 50 * 1024 * 1024, // 50MB for video files
     files: 5
   }
 });
@@ -228,6 +237,8 @@ app.post('/providers/:id/documents', upload.array('documents', 10), (req, res) =
       type = 'photo';
     } else if (file.originalname.match(/\.(pdf|doc|docx)$/i)) {
       type = 'diploma';
+    } else if (file.originalname.match(/\.(mp4|webm)$/i)) {
+      type = 'video';
     }
     stmt.run(providerId, type, file.filename);
   });
@@ -238,6 +249,64 @@ app.post('/providers/:id/documents', upload.array('documents', 10), (req, res) =
     }
     res.status(201).json({ message: 'Documents uploaded successfully' });
   });
+});
+
+// POST /providers/:id/video - Upload provider presentation video
+app.post('/providers/:id/video', upload.single('video'), (req, res) => {
+  const providerId = req.params.id;
+  if (!req.file) {
+    return res.status(400).json({ error: 'No video file uploaded' });
+  }
+
+  // Validate file type
+  if (!req.file.mimetype.startsWith('video/')) {
+    fs.unlink(req.file.path, () => {});
+    return res.status(400).json({ error: 'Invalid file type. Only video files are allowed.' });
+  }
+
+  // Save video information to database
+  db.run(
+    `INSERT INTO provider_documents (provider_id, type, file_path) VALUES (?, 'video', ?)`,
+    [providerId, req.file.filename],
+    function(err) {
+      if (err) {
+        console.error(err.message);
+        fs.unlink(req.file.path, () => {});
+        return res.status(500).json({ error: 'Failed to save video information' });
+      }
+      res.status(201).json({
+        message: 'Video uploaded successfully',
+        videoId: this.lastID,
+        filename: req.file.filename
+      });
+    }
+  );
+});
+
+// GET /providers/:id/video - Get provider's presentation video
+app.get('/providers/:id/video', (req, res) => {
+  const providerId = req.params.id;
+  
+  db.get(
+    `SELECT file_path FROM provider_documents WHERE provider_id = ? AND type = 'video' ORDER BY uploaded_at DESC LIMIT 1`,
+    [providerId],
+    (err, row) => {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: 'Failed to fetch video information' });
+      }
+      if (!row) {
+        return res.status(404).json({ error: 'No video found for this provider' });
+      }
+      
+      const videoPath = path.join(__dirname, 'uploads', row.file_path);
+      if (!fs.existsSync(videoPath)) {
+        return res.status(404).json({ error: 'Video file not found' });
+      }
+      
+      res.sendFile(videoPath);
+    }
+  );
 });
 
 app.get('/providers', (req, res) => {

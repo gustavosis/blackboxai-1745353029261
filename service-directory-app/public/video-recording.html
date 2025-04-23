@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Graba tu Video de Presentación - Directorio de Servicios</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .recording-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: .5;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+  <header class="bg-white shadow-sm">
+    <div class="container mx-auto px-4 py-4">
+      <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-800">Video de Presentación</h1>
+        <nav class="space-x-4">
+          <a href="index.html" class="text-blue-600 hover:text-blue-800 font-semibold">
+            <i class="fas fa-arrow-left"></i> Volver
+          </a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-8 flex-grow">
+    <div class="max-w-4xl mx-auto">
+      <!-- Instructions -->
+      <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">
+          <i class="fas fa-info-circle text-blue-600"></i> Instrucciones
+        </h2>
+        <ul class="space-y-2 text-gray-600">
+          <li><i class="fas fa-check text-green-500"></i> Graba un video corto presentándote y describiendo tus servicios</li>
+          <li><i class="fas fa-check text-green-500"></i> Mantén el video entre 30 segundos y 2 minutos</li>
+          <li><i class="fas fa-check text-green-500"></i> Asegúrate de tener buena iluminación y audio claro</li>
+          <li><i class="fas fa-check text-green-500"></i> Menciona tu experiencia y especialidades</li>
+        </ul>
+      </div>
+
+      <!-- Video Preview -->
+      <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div class="aspect-w-16 aspect-h-9 bg-gray-900 rounded-lg overflow-hidden mb-4">
+          <video id="preview" class="w-full h-full object-cover" autoplay muted></video>
+        </div>
+
+        <!-- Recording Status -->
+        <div id="recordingStatus" class="hidden items-center justify-center space-x-2 mb-4 text-red-600 font-medium">
+          <span class="recording-pulse">●</span>
+          <span>Grabando: </span>
+          <span id="timer">00:00</span>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex flex-wrap justify-center gap-4">
+          <button id="startBtn" class="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 shadow-sm">
+            <i class="fas fa-video mr-2"></i> Iniciar Grabación
+          </button>
+          <button id="pauseBtn" class="flex items-center px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition duration-200 shadow-sm hidden">
+            <i class="fas fa-pause mr-2"></i> Pausar
+          </button>
+          <button id="resumeBtn" class="flex items-center px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition duration-200 shadow-sm hidden">
+            <i class="fas fa-play mr-2"></i> Reanudar
+          </button>
+          <button id="stopBtn" class="flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 shadow-sm hidden">
+            <i class="fas fa-stop mr-2"></i> Detener
+          </button>
+          <button id="downloadBtn" class="flex items-center px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-200 shadow-sm hidden">
+            <i class="fas fa-download mr-2"></i> Descargar Video
+          </button>
+          <button id="uploadBtn" class="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 shadow-sm hidden">
+            <i class="fas fa-cloud-upload-alt mr-2"></i> Subir Video
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="messageContainer" class="hidden rounded-lg p-4 mb-6"></div>
+
+      <!-- Previous Recordings -->
+      <div id="previousRecordings" class="bg-white rounded-lg shadow-sm p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">
+          <i class="fas fa-history text-blue-600"></i> Historial de Grabaciones
+        </h2>
+        <div id="recordingsList" class="space-y-4">
+          <!-- Recordings will be added here -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-white shadow-sm mt-8">
+    <div class="container mx-auto px-4 py-4 text-center text-gray-600 text-sm">
+      &copy; 2024 Directorio de Servicios. Todos los derechos reservados.
+    </div>
+  </footer>
+
+  <script>
+    let mediaRecorder;
+    let recordedChunks = [];
+    let stream;
+    let timerInterval;
+    let startTime;
+    let pausedTime = 0;
+    let isPaused = false;
+
+    // Elements
+    const preview = document.getElementById('preview');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const recordingStatus = document.getElementById('recordingStatus');
+    const timer = document.getElementById('timer');
+    const messageContainer = document.getElementById('messageContainer');
+    const recordingsList = document.getElementById('recordingsList');
+
+    // Show message function
+    function showMessage(message, type = 'info') {
+      messageContainer.className = `rounded-lg p-4 mb-6 ${
+        type === 'error' ? 'bg-red-100 text-red-700' :
+        type === 'success' ? 'bg-green-100 text-green-700' :
+        'bg-blue-100 text-blue-700'
+      }`;
+      messageContainer.innerHTML = `<p class="flex items-center"><i class="fas fa-${
+        type === 'error' ? 'exclamation-circle' :
+        type === 'success' ? 'check-circle' :
+        'info-circle'
+      } mr-2"></i>${message}</p>`;
+      messageContainer.classList.remove('hidden');
+    }
+
+    // Update timer function
+    function updateTimer() {
+      const currentTime = Date.now();
+      const elapsedTime = Math.floor((currentTime - startTime + pausedTime) / 1000);
+      const minutes = Math.floor(elapsedTime / 60).toString().padStart(2, '0');
+      const seconds = (elapsedTime % 60).toString().padStart(2, '0');
+      timer.textContent = `${minutes}:${seconds}`;
+    }
+
+    // Start recording function
+    async function startRecording() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        preview.srcObject = stream;
+
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            recordedChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstart = () => {
+          startTime = Date.now();
+          timerInterval = setInterval(updateTimer, 1000);
+          recordingStatus.classList.remove('hidden');
+          recordingStatus.classList.add('flex');
+          startBtn.classList.add('hidden');
+          pauseBtn.classList.remove('hidden');
+          stopBtn.classList.remove('hidden');
+        };
+
+        mediaRecorder.onstop = () => {
+          clearInterval(timerInterval);
+          stream.getTracks().forEach(track => track.stop());
+          preview.srcObject = null;
+          downloadBtn.classList.remove('hidden');
+          uploadBtn.classList.remove('hidden');
+          recordingStatus.classList.add('hidden');
+          recordingStatus.classList.remove('flex');
+          pauseBtn.classList.add('hidden');
+          resumeBtn.classList.add('hidden');
+          stopBtn.classList.add('hidden');
+          startBtn.classList.remove('hidden');
+          
+          // Add to recordings list
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const timestamp = new Date().toLocaleString();
+          const recordingItem = document.createElement('div');
+          recordingItem.className = 'flex items-center justify-between bg-gray-50 p-4 rounded-lg';
+          recordingItem.innerHTML = `
+            <div class="flex items-center">
+              <i class="fas fa-video text-blue-600 mr-3"></i>
+              <div>
+                <p class="font-medium">Grabación - ${timestamp}</p>
+                <p class="text-sm text-gray-500">Duración: ${timer.textContent}</p>
+              </div>
+            </div>
+            <a href="${url}" download="presentacion.webm" 
+               class="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200">
+              <i class="fas fa-download mr-2"></i> Descargar
+            </a>
+          `;
+          recordingsList.insertBefore(recordingItem, recordingsList.firstChild);
+          
+          showMessage('¡Grabación completada con éxito!', 'success');
+        };
+
+        mediaRecorder.start();
+      } catch (err) {
+        console.error('Error accessing media devices:', err);
+        showMessage('Error al acceder a la cámara o micrófono. Por favor, verifica los permisos.', 'error');
+      }
+    }
+
+    // Event listeners
+    startBtn.addEventListener('click', startRecording);
+
+    pauseBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.pause();
+        pausedTime += Date.now() - startTime;
+        isPaused = true;
+        pauseBtn.classList.add('hidden');
+        resumeBtn.classList.remove('hidden');
+        clearInterval(timerInterval);
+      }
+    });
+
+    resumeBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'paused') {
+        mediaRecorder.resume();
+        startTime = Date.now();
+        isPaused = false;
+        resumeBtn.classList.add('hidden');
+        pauseBtn.classList.remove('hidden');
+        timerInterval = setInterval(updateTimer, 1000);
+      }
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'presentacion.webm';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Check for browser support
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showMessage('Tu navegador no soporta la grabación de video. Por favor, utiliza un navegador más reciente.', 'error');
+      startBtn.disabled = true;
+      startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+
+    // Upload functionality
+    uploadBtn.addEventListener('click', async () => {
+      if (recordedChunks.length === 0) {
+        showMessage('No hay video para subir', 'error');
+        return;
+      }
+
+      // Get provider ID (you might want to get this from a login session or URL parameter)
+      const providerId = prompt('Por favor, ingresa tu ID de proveedor para subir el video:');
+      if (!providerId) {
+        showMessage('Se necesita el ID del proveedor para subir el video', 'error');
+        return;
+      }
+
+      try {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const formData = new FormData();
+        formData.append('video', blob, 'presentacion.webm');
+
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Subiendo...';
+        showMessage('Subiendo video...', 'info');
+
+        const response = await fetch(`/providers/${providerId}/video`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          throw new Error('Error al subir el video');
+        }
+
+        const result = await response.json();
+        showMessage('¡Video subido exitosamente!', 'success');
+        
+        // Add upload success indicator to the recording item
+        const lastRecording = recordingsList.firstChild;
+        if (lastRecording) {
+          const statusBadge = document.createElement('span');
+          statusBadge.className = 'ml-2 px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm';
+          statusBadge.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Subido';
+          lastRecording.querySelector('div').appendChild(statusBadge);
+        }
+      } catch (error) {
+        console.error('Error uploading video:', error);
+        showMessage('Error al subir el video. Por favor, intenta nuevamente.', 'error');
+      } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = '<i class="fas fa-cloud-upload-alt mr-2"></i> Subir Video';
+      }
+    });
+  </script>
+</body>
+</html>

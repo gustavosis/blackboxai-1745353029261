@@ -2,15 +2,28 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 const bcrypt = require('bcrypt');
 const multer = require('multer');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const port = 3000;
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
+
 // Middleware
 app.use(bodyParser.json());
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -29,7 +42,21 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + '-' + file.originalname);
   }
 });
-const upload = multer({ storage: storage });
+const upload = multer({
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Tipo de archivo no permitido'), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+    files: 5
+  }
+});
 
 // Initialize SQLite database
 const db = new sqlite3.Database('./service-directory.db', (err) => {
@@ -39,6 +66,68 @@ const db = new sqlite3.Database('./service-directory.db', (err) => {
     console.log('Connected to SQLite database.');
   }
 });
+
+// Configure Passport strategies
+passport.use(new LocalStrategy(
+  { usernameField: 'email' },
+  async (email, password, done) => {
+    try {
+      const user = await db.get('SELECT * FROM users WHERE email = ?', [email]);
+      if (!user) return done(null, false);
+      const isValid = await bcrypt.compare(password, user.password);
+      return isValid ? done(null, user) : done(null, false);
+    } catch (err) {
+      return done(err);
+    }
+  }
+));
+
+/*
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "/auth/google/callback"
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      let user = await db.get('SELECT * FROM users WHERE googleId = ?', [profile.id]);
+      if (!user) {
+        await db.run(
+          'INSERT INTO users (googleId, email, name) VALUES (?, ?, ?)',
+          [profile.id, profile.emails[0].value, profile.displayName]
+        );
+        user = await db.get('SELECT * FROM users WHERE googleId = ?', [profile.id]);
+      }
+      return done(null, user);
+    } catch (err) {
+      return done(err);
+    }
+  }
+));
+
+passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackURL: "/auth/facebook/callback",
+    profileFields: ['id', 'emails', 'name']
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      let user = await db.get('SELECT * FROM users WHERE facebookId = ?', [profile.id]);
+      if (!user) {
+        await db.run(
+          'INSERT INTO users (facebookId, email, name) VALUES (?, ?, ?)',
+          [profile.id, profile.emails[0].value, profile.displayName]
+        );
+        user = await db.get('SELECT * FROM users WHERE facebookId = ?', [profile.id]);
+      }
+      return done(null, user);
+    } catch (err) {
+      return done(err);
+    }
+  }
+));
+*/
 
 // Create tables if not exist
 db.serialize(() => {
@@ -87,21 +176,42 @@ db.serialize(() => {
   )`);
 });
 
-app.post('/providers', (req, res) => {
-  const { name, service, description, contact, location, latitude, longitude } = req.body;
-  if (!name || !service || !contact) {
-    return res.status(400).json({ error: 'Name, service, and contact are required.' });
+const sqlstring = require('sqlstring');
+
+app.post('/providers', async (req, res) => {
+  const { name, service, description, contact, location, latitude, longitude, password, email } = req.body;
+  if (!name || !service || !contact || !password || !email) {
+    return res.status(400).json({ error: 'Name, service, contact, email, and password are required.' });
   }
-  const sql = `INSERT INTO providers (name, service, description, contact, location, latitude, longitude, active)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 1)`;
-  const params = [name, service.toLowerCase(), description || '', contact, location || '', latitude || null, longitude || null];
-  db.run(sql, params, function(err) {
-    if (err) {
-      console.error(err.message);
-      return res.status(500).json({ error: 'Failed to register provider' });
-    }
-    res.status(201).json({ id: this.lastID, ...req.body, active: 1 });
-  });
+  try {
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert user record
+    const userSql = `INSERT INTO users (username, password, email) VALUES (?, ?, ?)`;
+    const userParams = [contact, hashedPassword, email];
+    db.run(userSql, userParams, function(err) {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: 'Failed to register user' });
+      }
+      const userId = this.lastID;
+
+      // Insert provider record linked to user
+      const providerSql = `INSERT INTO providers (name, service, description, contact, location, latitude, longitude, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)`;
+      const providerParams = [name, service.toLowerCase(), description || '', contact, location || '', parseFloat(latitude) || null, parseFloat(longitude) || null];
+      db.run(providerSql, providerParams, function(err) {
+        if (err) {
+          console.error(err.message);
+          return res.status(500).json({ error: 'Failed to register provider' });
+        }
+        res.status(201).json({ userId, providerId: this.lastID, active: 1 });
+      });
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error during registration' });
+  }
 });
 
 // POST /providers/:id/documents - Upload provider documents (photos, diplomas)
@@ -158,7 +268,7 @@ app.get('/providers', (req, res) => {
   });
 });
 
-app.post('/users/register', async (req, res) => {
+app.post('/users/register', authLimiter, async (req, res) => {
   const { username, password, email, role } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required.' });
@@ -180,7 +290,7 @@ app.post('/users/register', async (req, res) => {
   }
 });
 
-app.post('/users/login', (req, res) => {
+app.post('/users/login', authLimiter, (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required.' });
@@ -260,6 +370,21 @@ app.get('/service_requests/:id', (req, res) => {
     res.json(row);
   });
 });
+
+// Authentication routes
+app.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => res.redirect('/profile'));
+
+app.get('/auth/facebook',
+  passport.authenticate('facebook', { scope: ['email'] }));
+
+app.get('/auth/facebook/callback',
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
+  (req, res) => res.redirect('/profile'));
 
 // Explicitly serve index.html on root route
 app.get('/', (req, res) => {
